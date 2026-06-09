@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}New Invoice — Invoice Generator{% endblock %}
+
+{% block content %}
+<form id="invoice-form" method="POST" action="{{ url_for('generate_pdf') }}" class="invoice-form" novalidate>
+
+    <!-- =================== Seller (Your Company) =================== -->
+    <section class="card">
+        <h2>1. Your Company (Seller)</h2>
+        <div class="grid grid-2">
+            <label>Company Name *
+                <input type="text" name="company_name" required value="Acme Traders Pvt. Ltd.">
+            </label>
+            <label>Phone
+                <input type="text" name="company_phone" value="+91 9876543210">
+            </label>
+            <label class="full">Address
+                <textarea name="company_address" rows="2">123, MG Road, Mumbai, Maharashtra - 400001</textarea>
+            </label>
+            <label>GSTIN
+                <input type="text" name="company_gstin" value="27AAACA1234A1Z5" maxlength="15">
+            </label>
+            <label>State
+                <input type="text" name="company_state" id="company_state" value="Maharashtra" list="states-list">
+            </label>
+            <label>Email
+                <input type="email" name="company_email" value="billing@acmetraders.com">
+            </label>
+        </div>
+    </section>
+
+    <!-- =================== Buyer =================== -->
+    <section class="card">
+        <h2>2. Buyer (Billed To)</h2>
+        <div class="grid grid-2">
+            <label>Buyer Name *
+                <input type="text" name="buyer_name" required value="Sample Customer LLP">
+            </label>
+            <label>Phone
+                <input type="text" name="buyer_phone" value="+91 9988776655">
+            </label>
+            <label class="full">Address
+                <textarea name="buyer_address" rows="2">45, Indiranagar, Bengaluru, Karnataka - 560038</textarea>
+            </label>
+            <label>GSTIN
+                <input type="text" name="buyer_gstin" value="29AAACX1234B1Z9" maxlength="15">
+            </label>
+            <label>State
+                <input type="text" name="buyer_state" id="buyer_state" value="Karnataka" list="states-list">
+            </label>
+            <label>Email
+                <input type="email" name="buyer_email" value="accounts@samplecustomer.com">
+            </label>
+        </div>
+    </section>
+
+    <!-- =================== Invoice Meta =================== -->
+    <section class="card">
+        <h2>3. Invoice Details</h2>
+        <div class="grid grid-3">
+            <label>Invoice Number *
+                <input type="text" name="invoice_number" required value="INV-001">
+            </label>
+            <label>Invoice Date *
+                <input type="date" name="invoice_date" required value="{{ today }}">
+            </label>
+            <label>Due Date
+                <input type="date" name="due_date">
+            </label>
+            <label>Place of Supply
+                <input type="text" name="place_of_supply" value="Karnataka">
+            </label>
+            <label>Tax Type
+                <select name="tax_type" id="tax_type">
+                    <option value="CGST_SGST">CGST + SGST (Intra-state)</option>
+                    <option value="IGST">IGST (Inter-state)</option>
+                </select>
+            </label>
+            <label>GST Rate (%)
+                <select name="gst_rate" id="gst_rate">
+                    <option value="0">0%</option>
+                    <option value="5">5%</option>
+                    <option value="12">12%</option>
+                    <option value="18" selected>18%</option>
+                    <option value="28">28%</option>
+                </select>
+            </label>
+        </div>
+    </section>
+
+    <!-- =================== Line Items =================== -->
+    <section class="card">
+        <div class="card-header">
+            <h2>4. Items</h2>
+            <button type="button" class="btn btn-secondary" id="add-row">+ Add Item</button>
+        </div>
+
+        <div class="items-table-wrap">
+            <table class="items-table" id="items-table">
+                <thead>
+                    <tr>
+                        <th style="width:32%">Description</th>
+                        <th style="width:12%">HSN/SAC</th>
+                        <th style="width:10%">Qty</th>
+                        <th style="width:10%">Unit</th>
+                        <th style="width:16%">Rate (Rs.)</th>
+                        <th style="width:15%">Amount</th>
+                        <th style="width:5%"></th>
+                    </tr>
+                </thead>
+                <tbody id="items-body">
+                    <tr class="item-row">
+                        <td><input type="text" name="item_description[]" required placeholder="Item / service description"></td>
+                        <td><input type="text" name="item_hsn[]" placeholder="8471"></td>
+                        <td><input type="number" name="item_qty[]" step="0.01" min="0" value="1" class="qty"></td>
+                        <td><input type="text" name="item_unit[]" value="NOS"></td>
+                        <td><input type="number" name="item_rate[]" step="0.01" min="0" value="0" class="rate"></td>
+                        <td class="amount-cell">Rs. 0.00</td>
+                        <td><button type="button" class="btn-icon remove-row" title="Remove">✕</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- =================== Discount =================== -->
+    <section class="card">
+        <h2>5. Discount</h2>
+        <div class="grid grid-3">
+            <label>Discount (%)
+                <input type="number" name="discount_pct" id="discount_pct" step="0.01" min="0" max="100" value="0">
+            </label>
+        </div>
+    </section>
+
+    <!-- =================== Totals (live) =================== -->
+    <section class="card totals-card">
+        <h2>6. Summary</h2>
+        <table class="totals-table">
+            <tbody>
+                <tr><td>Subtotal</td><td id="t_subtotal">Rs. 0.00</td></tr>
+                <tr><td>Discount</td><td id="t_discount">- Rs. 0.00</td></tr>
+                <tr><td>Taxable Value</td><td id="t_taxable">Rs. 0.00</td></tr>
+                <tr class="tax-row cgst-row"><td>CGST (<span id="t_cgst_pct">9</span>%)</td><td id="t_cgst">Rs. 0.00</td></tr>
+                <tr class="tax-row sgst-row"><td>SGST (<span id="t_sgst_pct">9</span>%)</td><td id="t_sgst">Rs. 0.00</td></tr>
+                <tr class="tax-row igst-row" style="display:none"><td>IGST (<span id="t_igst_pct">18</span>%)</td><td id="t_igst">Rs. 0.00</td></tr>
+                <tr><td>Total Tax</td><td id="t_total_tax">Rs. 0.00</td></tr>
+                <tr class="grand"><td>Grand Total</td><td id="t_grand">Rs. 0.00</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- =================== Optional footer =================== -->
+    <section class="card">
+        <h2>7. Bank Details &amp; Terms (Optional)</h2>
+        <div class="grid grid-2">
+            <label>Bank Details
+                <textarea name="bank_details" rows="3" placeholder="Bank: HDFC Bank&#10;A/C No: 1234567890&#10;IFSC: HDFC0001234&#10;Branch: Mumbai"></textarea>
+            </label>
+            <label>Terms &amp; Conditions
+                <textarea name="terms" rows="3" placeholder="1. Goods once sold will not be taken back.&#10;2. Interest @18% p.a. will be charged on overdue bills.&#10;3. Subject to Mumbai Jurisdiction."></textarea>
+            </label>
+        </div>
+    </section>
+
+    <div class="actions">
+        <button type="submit" class="btn btn-primary">⬇ Download PDF</button>
+        <button type="reset" class="btn btn-ghost">Reset</button>
+    </div>
+</form>
+
+<!-- Indian States datalist for autocomplete -->
+<datalist id="states-list">
+    <option value="Andhra Pradesh"><option value="Arunachal Pradesh"><option value="Assam">
+    <option value="Bihar"><option value="Chhattisgarh"><option value="Goa"><option value="Gujarat">
+    <option value="Haryana"><option value="Himachal Pradesh"><option value="Jharkhand">
+    <option value="Karnataka"><option value="Kerala"><option value="Madhya Pradesh">
+    <option value="Maharashtra"><option value="Manipur"><option value="Meghalaya">
+    <option value="Mizoram"><option value="Nagaland"><option value="Odisha">
+    <option value="Punjab"><option value="Rajasthan"><option value="Sikkim">
+    <option value="Tamil Nadu"><option value="Telangana"><option value="Tripura">
+    <option value="Uttar Pradesh"><option value="Uttarakhand"><option value="West Bengal">
+    <option value="Delhi"><option value="Jammu and Kashmir"><option value="Ladakh">
+    <option value="Chandigarh"><option value="Puducherry"><option value="Andaman and Nicobar">
+    <option value="Lakshadweep"><option value="Dadra and Nagar Haveli and Daman and Diu">
+</datalist>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/invoice.js') }}"></script>
+{% endblock %}
